@@ -1,0 +1,3 @@
+e3mg: e3mg e3mg_LoF
+mcneall: eigenmaps landmask mcneall_pc mcneall_temps mean_temp opt_mcneall
+mtoys: toy_LoF toy_beta toy_d toy_d2 toy_expt toy_mhp toy_mm toy_mm2 toy_mm3 toy_mm4 toy_point

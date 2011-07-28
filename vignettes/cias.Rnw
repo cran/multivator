@@ -1,0 +1,257 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+\documentclass[nojss]{jss}
+\usepackage{dsfont}
+\usepackage{bbm}
+\usepackage{amsfonts}
+\usepackage{wasysym}
+\usepackage{amssymb}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\newcommand{\cias}{\proglang{CIAS}}
+
+%% just as usual
+\author{Robin K. S. Hankin\\Auckland University of Technology}
+\title{Package \pkg{multivator} applied to modular systems such as \cias}
+%\VignetteIndexEntry{cias}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Robin K. S. Hankin}
+\Plaintitle{The multivator package used in modular systems}
+\Plaintitle{The multivator package used in modular systems}
+
+%% an abstract and keywords
+\Abstract{
+  This vignette shows how the \pkg{multivator} package may be used to
+  analyze computer model systems such as \cias, which comprise
+  interchangeable modules.  If the different modules require different
+  input parameters, then it is possible to use specify a reasonable
+  mean and covariance structure using the package, and a short
+  example, using synthetic data, is given here.
+}
+
+\Keywords{Emulator, multivariate emulator, \proglang{BACCO}, \cias}
+\Plainkeywords{Emulator, multivariate emulator, BACCO, CIAS}
+
+%% publication information
+%% NOTE: This needs to filled out ONLY IF THE PAPER WAS ACCEPTED.
+%% If it was not (yet) accepted, leave them commented.
+%% \Volume{13}
+%% \Issue{9}
+%% \Month{September}
+%% \Year{2004}
+%% \Submitdate{2004-09-29}
+%% \Acceptdate{2004-09-29}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+  Robin K. S. Hankin\\
+  Auckland University of Technology
+  Auckland
+  New Zealand
+  E-mail: \email{hankin.robin@gmail.com}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/1/31336-5053
+%% Fax: +43/1/31336-734
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\SweaveOpts{}
+\begin{document}
+\section{Introduction}
+
+<<set_seed_chunk,echo=FALSE,print=FALSE>>=
+set.seed(0)
+@ 
+
+<<time_saver,echo=FALSE,print=FALSE>>=
+calc_from_scratch <- TRUE
+@ 
+
+<<echo=FALSE,print=FALSE>>=
+ignore <- require(multivator,quietly=TRUE)
+@ 
+
+\proglang{CIAS}~\citep{warren2008} is a system for analyzing climate
+change in an interdisciplinary context.  It has a modular
+architecture, one benefit of which is that a module may be replaced
+with another compatible module and results compared.
+
+In \proglang{CIAS}, the modules address various aspects of the global
+climate system and examples include \proglang{E3MG} which models the
+global economy, \proglang{MAGICC} which models the physical global
+climate, and \proglang{ICLIPS} which models the impacts of climate
+change.  The modules exchange information at runtime using the
+\proglang{BFG} protocol.
+
+One feature of \proglang{CIAS} is that it is possible to replace any
+module with another functionally equivalent one.  Multivariate
+emulation is useful when considering the behaviour of \proglang{CIAS}
+used in this way.  If one has~$p$ different interchangeable modules,
+then the output of \proglang{CIAS} is a $p$-variate random variable
+that may be analyzed using the \pkg{multivator} package.
+
+If the interchangeable modules have the same input parameters, then
+analysis of the type presented in the main vignette is appropriate.
+If, as is usually the case, the modules have different or incomparable
+input parameters (possibly with parameter spaces of different
+dimensionality) then a slight modification is necessary.
+
+\section{The package in use}
+
+In this vignette, I analyze a small synthetic dataset of the type
+arising when \proglang{CIAS} is used.
+ 
+<<setupcias,echo=FALSE>>=
+jj <- latin.hypercube(21,6)
+colnames(jj) <- c("cias1","cias2","A_p1","B_p1","B_p2","C_p1")
+rownames(jj) <- c(
+                 paste("module_A_run",1:7,sep=""),
+                 paste("module_B_run",1:7,sep=""),
+                 paste("module_C_run",1:7,sep="")
+                 )
+jj[1:7  , 4:6  ] <- 0
+jj[8:14 ,c(3,6)] <- 0
+jj[15:21, 3:5  ] <- 0
+
+real_cias_mdm <- mdm(jj, factor(rep(LETTERS[1:3],each=7)))
+@ 
+
+
+
+
+<<makedisplayableciasmdm,echo=FALSE>>=  # we have the 'real' cias_mdm and now we
+                                        # have to create a version that looks good.  The
+                                        # difference is that '0.000' displays as '0'.
+
+
+jj <- xold(real_cias_mdm)
+jj <- round(jj,3)
+storage.mode(jj) <- 'character'
+jj[nchar(jj)==3] <- paste(jj[nchar(jj)==3] ,'0',sep='')
+jj[nchar(jj)==4] <- paste(jj[nchar(jj)==4] ,'0',sep='')
+cias_mdm <- noquote(jj)
+@ 
+
+Consider the following multivariate design matrix:
+
+<<showcias>>=
+cias_mdm
+@ 
+
+Each row corresponds to a run of \cias, with one of three modules,
+\proglang{A}, \proglang{B}, or \proglang{C}.  Rows 1-7 used
+module~\code{A}, rows 8-14 used module~\proglang{B}, and rows 15-21
+used module~\proglang{C}.  Parameters are indicated with column
+headings; thus \cias\ itself has two parameters \code{cias1} and
+\code{cias2}.  Module \proglang{A} has one parameter (\code{A\_p1});
+\proglang{B} has two (\code{B\_p1} and \code{B\_p2}) and module
+\proglang{C} has one (\code{C\_p1}).
+
+<<definemhp,echo=FALSE>>=
+jjM <- matrix(1,3,3)
+diag(jjM) <- 2
+
+jjB <- matrix(0,6,6)
+diag(jjB) <- 1
+jjB <- abind(jjB,jjB,jjB,along=3)
+
+cias_mhp <- mhp(M=jjM, B = jjB, levels=levels(real_cias_mdm),names=names(real_cias_mdm))
+@ 
+
+Now consider the  hyperparameter object \code{cias_mhp}:
+
+
+<<cheat,echo=FALSE>>=
+cias_mdm <- real_cias_mdm
+@ 
+
+<<showsummary,echo=TRUE>>=
+summary(cias_mhp)
+@ 
+
+
+<<echo=FALSE>>=
+cias_LoF <- list(
+                 A = function(x){ c(const=1,x[1:2],x[3  ]) },
+                 B = function(x){ c(const=1,x[1:2],x[4:5]) },
+                 C = function(x){ c(const=1,x[1:2],x[6  ]) }
+                 )
+cias_beta <- 1:13
+
+@ 
+
+The following \code{LoF} object
+<<showlof>>=
+cias_LoF
+@ 
+
+specifies a set of basis functions that are appropriate to the
+multivariate design matrix \code{cias\_mdm}.
+It is now possible to create some synthetic data from this system:
+
+<<dosomestuff,echo=TRUE>>= 
+cias_obs <- obs_maker(cias_mdm, cias_mhp, cias_LoF, cias_beta)
+cias_expt <- experiment(cias_mdm , cias_obs)
+@
+
+and so \code{cias\_expt} is an object of class \code{experiment},
+containing a multivariate design matrix and observations.
+
+
+<<definineunk,echo=FALSE>>=
+jj <- cias_mdm[1:3,]
+types(jj) <- levels(jj)
+xold(jj)[,3] <- 0
+xold(jj)[,1:2] <- 0.5
+rownames(jj) <- paste("m",LETTERS[1:3],sep=".")
+cias_unknown <- jj
+@ 
+
+
+Now consider the following design matrix:
+
+<<showunk>>=
+cias_unknown
+@ 
+
+The three rows corresponding to an evaluation of the three modules:
+the \cias\ parameters are 0.5, and the module parameters take the
+notional value of zero.
+
+
+<<usemultem>>=
+multem(cias_unknown, cias_expt, cias_mhp, cias_LoF, give=TRUE)
+@ 
+
+
+
+\section{Discussion}
+\label{further_work}
+
+The \pkg{multivator} package has been used to assess a modular systems
+such as \cias, which has the facility to replace an individual module
+with another performing the same task, but possibly using a different
+modelling approach.
+
+The system adopted here has some similarities to that
+of~\citet{kennedy2000}, who gave a way of dealing with a hierarchy of
+models using a sequential system of basis functions and fitting a
+Gaussian process to the difference between successive levels in the
+hierarchy.
+
+
+\bibliography{multivator} 
+\end{document} 
+ 

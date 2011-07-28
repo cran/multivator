@@ -1,0 +1,1374 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+\documentclass[nojss]{jss}
+\usepackage{dsfont}
+\usepackage{bbm}
+\usepackage{amsfonts}
+\usepackage{wasysym}
+\usepackage{amssymb}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\bt}{\mathbf{t}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bh}{\mathbf{h}}
+
+\newcommand{\bbeta}{\mbox{\boldmath $\beta$}}
+\newcommand{\boldeta}{\mbox{\boldmath $\eta$}}
+\newcommand{\bom}{\mbox{\boldmath $\omega$}}
+\newcommand{\boldd}{\mathbf d}
+
+\newcommand{\Smat}{\mathcal{S}}
+\newcommand{\Bmat}{\mathcal{B}}
+\newcommand{\half}{\frac{1}{2}}
+\newcommand{\shalf}{\scriptstyle{\mbox{$\frac{1}{2}$}}}
+
+\newcommand{\genie}{\proglang{Genie-Goldstein}}
+\newcommand{\cias}{\proglang{CIAS}}
+\newcommand{\ethreemg}{\proglang{E3MG}}
+
+%% just as usual
+\author{Robin K. S. Hankin\\Auckland University of Technology}
+\title{Introducing \pkg{multivator}: A Multivariate Emulator}
+%\VignetteIndexEntry{The multivator package}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Robin K. S. Hankin}
+\Plaintitle{A Multivariate Emulator}
+\Shorttitle{A Multivariate Emulator}
+
+%% an abstract and keywords
+
+\Abstract{A multivariate generalization of the \pkg{emulator}
+  technique described by~\citet{hankin2005} is presented in which
+  random multivariate functions may be assessed.  In the standard
+  univariate case~\citep{oakley1999}, a Gaussian process, a finite
+  number of observations is made; here, observations of different
+  types are considered.  The technique has the property that marginal
+  analysis (that is, considering only a single observation type)
+  reduces exactly to the univariate theory.
+  
+  The associated software is used to analyze datasets from the field
+  of climate change.
+  
+  This vignette is based on \citet{hankin2012}.
+  
+%  This vignette is based on a manuscript currently under review at the
+%  Journal of Statistical Software.  For reasons of performance, some
+%  of the more computationally expensive results are pre-loaded.  To
+%  calculate them from scratch, change ``\code{calc\_from\_scratch <-
+%    TRUE}'' to ``\code{calc\_from\_scratch <- FALSE}'' in chunk
+%  \code{time\_saver}.  In any event, use the \code{weaver} package.
+  
+}
+
+\Keywords{Emulator, multivariate emulator, \pkg{BACCO}}
+\Plainkeywords{Emulator, multivariate emulator, BACCO}
+
+%% publication information
+%% NOTE: This needs to filled out ONLY IF THE PAPER WAS ACCEPTED.
+%% If it was not (yet) accepted, leave them commented.
+%% \Volume{13}
+%% \Issue{9}
+%% \Month{September}
+%% \Year{2004}
+%% \Submitdate{2004-09-29}
+%% \Acceptdate{2004-09-29}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+  Robin K. S. Hankin\\
+  Auckland University of Technology\\
+  School of Computing and Mathematical Sciences\\
+  Wakefield Street\\
+  Auckland\\
+  New Zealand\\
+  E-mail: \email{hankin.robin@gmail.com}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/1/31336-5053
+%% Fax: +43/1/31336-734
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\SweaveOpts{}
+\begin{document}
+\section{Introduction}
+
+<<set_seed_chunk,echo=FALSE,print=FALSE>>=
+set.seed(0)
+options(prompt = "R> ", continue = "+  ", width = 70, useFancyQuotes = FALSE)
+@ 
+
+<<time_saver,echo=FALSE,print=FALSE>>=
+calc_from_scratch <- TRUE
+@ 
+
+<<echo=FALSE,print=FALSE>>=
+ignore <- require("multivator",quietly=TRUE)
+@ 
+
+Many scientific disciplines require the use of complex computer
+models.  Such models, also known as ``simulators'', are valid objects
+of inference and are often assumed to be random functions and assessed
+using the Bayesian statistical paradigm~\citep{currin1991}; in
+particular, computer models are often assumed to be Gaussian
+Processes~\citep{oakley2002}.
+
+Although deterministic---in the sense that running the simulator twice
+with identical inputs gives identical outputs---the Bayesian paradigm
+is to treat the code output as a random variable because, before the
+computational task is finished, one has subjective uncertainty about
+the outcome; \citet{definetti1974} discusses the philosophy of this
+approach.  \citet{hankin2005} discusses this issue from a
+computational perspective.
+
+Given that the simulator is a random function, uncertainty about its
+behaviour is reducible to an arbitrarily low level by running the
+simulator sufficiently many times.  However, because many modern
+simulators require large amounts of computer time to run, this is not
+possible; in practice one is typically presented with a fixed number
+of simulator runs as data.
+
+One tool used to make inferences about
+simulators under these circumstances is the \emph{emulator}~\citep{oakley1999},
+and the~\pkg{BACCO} suite of \proglang{R}
+packages~\citep{hankin2005}.  The emulator is an established technique
+that has been used in many fields including Earth systems
+science~\citep{mcneall2008}, oceanography~\citep{challenor2006}, and
+climate science~\citep{warren2008}.  However, \pkg{BACCO} is limited to
+univariate random functions.  In this paper, I present a
+generalization of the Gaussian Process which allows the 
+technique to be used for multivariate simulator output.
+
+The current work is a generalization of that of~\citet{conti2010}, who
+presented a separable covariance structure.  Here, I present a
+generalization of that work in which the roughness lengths of the
+components of the multivariate process are allowed to differ.
+
+
+\subsection{Review of theory for the univariate emulator}
+\label{review_univariate}
+This section presents a very brief review of the univariate emulator.
+Much of the material is taken directly from~\cite{oakley1999} with
+slight changes of notation.
+
+For any random univariate function~$\eta\colon\mathbb{R}^d\to\mathbb{R}$ and set of
+points~$\left\{\bx_1,\ldots,\bx_n\right\}$ with~$\bx_i\in\mathbb{R}^d$,
+  the random vector~$\by=\left(\eta(\bx_1),\ldots,\eta(\bx_n)\right)^\top$
+  is assumed to be multivariate normal:
+\begin{equation}\label{unconditional_gaussian}
+\left.\by\right|\bbeta,\Sigma\sim\mathcal{N}\left(H\bbeta,\Sigma\right)
+\end{equation}
+where~$H=\left(\bh(\bx_1),\ldots,\bh(\bx_n)\right)^\top$ is the matrix of
+(known) regressor
+functions~$\bh\colon\mathbb{R}^d\to\mathbb{R}^q$ so the
+regressor matrix~$H$ is~$n$ by~$q$, denoted~$H_{[n\times q]}$; it is
+sometimes convenient to write~$H=H\left(\bX\right)$ where~$\bX_{[n\times
+    d]}$ is the design matrix.  Equation~\ref{unconditional_gaussian}
+is conditional on the (unknown) vector of coefficients~$\bbeta_{[q]}$
+and the variance matrix~$\Sigma_{[n\times n]}$.  A common choice
+for~$\bh(\cdot)$ is~$\bh(\bx)=(1,x_1,\ldots,x_d)^\top$ [thus~$q=d+1$],
+but one is in principle free to choose any function of~$\bx$.
+
+The variance matrix is, explicitly:
+\begin{equation}\label{explicit_Sigma}
+\Sigma=\left(
+\begin{array}{cccc}
+\VAR(\eta(\bx_1)) & \COV(\eta(\bx_1),\eta(\bx_2)) & \, \, \,\cdots\, \, \, & \COV(\eta(\bx_1),\eta(\bx_n))\\
+\COV(\eta(\bx_2),\eta(\bx_1)) & \VAR(\eta(\bx_2)) & {} & \vdots\\
+\vdots & {} & \ddots & {} \\
+\COV(\eta(\bx_n),\eta(\bx_1)) & \cdots & {} & \VAR(\eta(\bx_n))
+\end{array}\right).
+\end{equation}
+
+(\citeauthor{oakley1999} writes~$\sigma^2A$ for~$\Sigma$,
+where~$A_{[n\times n]}$ is a matrix of correlations and~$\sigma^2$ is
+an overall variance).  It can be shown that
+
+\begin{equation}\label{eq2.17}
+\left. \eta(\cdot)\right| \bbeta,\Sigma,\by\sim
+\mathcal{N}\left(m^*(\cdot),\COV^*(\cdot,\cdot)\right)
+\end{equation}
+ where
+ 
+ \begin{eqnarray}
+   m^*(\bx)      &=& \bh(\bx)^\top\bbeta + \bt(\bx)^\top\Sigma^{-1} \left(\by-H\bbeta\right)\\
+   \COV^*(\eta(\bx),\eta(\bx'))&=& \COV(\eta(\bx),\eta(\bx'))-\bt(\bx)^\top\Sigma^{-1}\bt(\bx')\\
+   \bt(\bx)^\top    &=& \left(\COV(\eta(\bx),\eta(\bx_1)),\ldots,\COV(\eta(\bx),\eta(\bx_n))\right)\\
+   \by^\top         &=& \left(\eta(\bx_1),\ldots,\eta(\bx_n)\right).
+ \end{eqnarray}
+  
+
+If an improper flat prior for~$\bbeta$ is used, its posterior conditional
+distribution can be shown to be
+\[
+\left.\bbeta\right|\Sigma,\by\sim\mathcal{N}\left(\hat{\bbeta},\left(H^\top\Sigma^{-1}H\right)^{-1}\right)
+\]
+where
+\[
+\hat{\bbeta}=\left(H^\top\Sigma^{-1}H\right)^{-1}H^\top\Sigma^{-1}\by\]
+
+is the posterior mean.
+It is possible to integrate out~$\bbeta$ to obtain 
+\begin{equation}\label{general_emulator}
+\left.\eta(\cdot)\right|\Sigma\sim
+\mathcal{N}\left(m^{**}(\cdot),\COV^{**}(\cdot,\cdot)\right)
+\end{equation}
+
+where
+
+\begin{eqnarray}\label{emulator_mean}
+  m^{**}(\bx) &=& \bh(\bx)^\top\hat{\bbeta} + \bt(\bx)^\top\Sigma^{-1}\left(\by-H\hat{\bbeta}\right)\\
+  \COV^{**}(\eta(\bx),\eta(\bx')) &=&\COV^*(\eta(\bx),\eta(\bx')) +\nonumber\\
+  &&\left(\bh(\bx)^\top-\bt(\bx)^\top\Sigma^{-1} H\right)\,
+  \left(H^\top\Sigma^{-1}H\right)^{-1}\,
+  \left(\bh(\bx')^\top-\bt(\bx')^\top\Sigma^{-1} H\right)^\top.
+  \label{emulator_cov}
+  \end{eqnarray}
+
+The two superscript stars mean that the results have
+been integrated with respect to the posterior distribution
+of~$\bbeta$.  What these equations mean is that 
+
+\begin{equation}\label{the_emulator}
+\left.\eta(\cdot)\right|\Sigma\sim\mathcal{N}\left(m^{**}(\cdot),\COV^{**}\left(\eta(\cdot),\eta(\cdot)\right)\right).
+\end{equation}
+
+Or, in words, that~$m^{**}(\bx)$ is a quick approximation for
+the~$\eta(\bx)$ in the sense that its posterior distribution is
+Gaussian with mean and variance given by the right hand side of
+Equation~\ref{emulator_mean} and~\ref{emulator_cov} respectively.
+It is usual to refer to Equation~\ref{the_emulator} as the
+\emph{emulator}; observe that the entire posterior distribution is
+specified.
+
+
+\subsubsection{Positive definiteness}
+
+The covariance matrix, Equation~\ref{explicit_Sigma}, is required to
+be positive definite for any choice of design matrix.  This can be
+guaranteed by appropriate choice of covariance function.
+
+Writing~$\COV(\eta(\bx),\eta(\bx'))=\sigma^2c(\bx-\bx')$, then
+Bochner's theorem~\citep{feller1966} shows that~$\Sigma$ is positive
+definite for any~$\bx_1,\ldots,\bx_n$ if and only if~$c(\bt)$ is the
+characteristic function of a symmetric probability Borel measure:
+
+\begin{equation}\label{borel_measure}
+c(\bt)=\int_{\bom\in\mathbb{R}^d}
+e^{i\bom^\top\bt}\,dF(\bom).
+\end{equation}
+
+One standard choice~\citep{hankin2005} is a standard multivariate
+Gaussian distribution\footnote{A number of different choices
+  for~$f(\cdot)$ have been used in the literature.  \cite{stein1999},
+  for example, advocates a Student $t$- distribution, but the
+  corresponding generalization of Equation~\ref{bochner} is the
+  subject of ``controversy and difficulties''~\citep{dreier2002},
+  possessing no closed form solution~\citep{sutradhar1986}, and
+  further work would be needed to implement it in the context
+  of~\pkg{BACCO}.} with mean zero and variance~$\Smat_{[d\times
+    d]}$.  This gives
+\begin{equation}\label{bochner}
+c(\bt)=\int_{\bom\in\mathbb{R}^d}
+e^{i\bom^\top\bt}\frac{1}{\sqrt{\left|2\pi\Smat\right|}}\exp(-{\scriptstyle \frac{1}{2}}\bom^\top\Smat^{-1}\bom)\,d\bom.
+\end{equation}
+
+In practice one writes~$\Bmat=\Smat^{-1}/2$ and absorbs the
+normalization constant into a~$\sigma^2$ term leaving:
+
+\begin{equation}\label{cexp}
+c(\bt)=\exp\{-\bt^\top\Bmat\bt\}
+\end{equation}
+giving
+\begin{equation}\label{covariance_univariate_B}
+\COV(\eta(\bx),\eta(\bx'))=\sigma^2c(\bx-\bx')=
+\sigma^2\exp\{-\bt^\top\Bmat\bt\}.
+\end{equation}
+
+Then~$\Sigma$ in equation~\ref{explicit_Sigma} is guaranteed to be
+positive-definite.
+
+
+\section{Earlier multivariate work}
+\label{earliermultivariatework}
+A natural generalization of Equation~\ref{eq2.17} is to
+consider~$\boldeta\colon\mathbb{R}^d\to\mathbb{R}^p$ with
+a separable covariance function.  \citet{conti2010}, for example,
+generalized equation~\ref{general_emulator} to a matrix Gaussian with
+a column covariance matrix given by
+Equation~\ref{covariance_univariate_B}, and a row covariance
+matrix~$\Lambda_{[p\times p]}$ which they treated as an additional
+hyperparameter.
+
+\cite{rougier2008}, considering the common problem of multidimensional
+model output that is indexed by a Cartesian grid, presented a
+computationally advantageous method; and \cite{higdon2008} considered
+the principal components of multivariate experimental results.
+
+However, all these approaches suffer from the disadvantage that the
+separability of the covariance matrix implies that the roughness
+lengths of each of the components are identical.  This assumption is
+often not justified: For example, in climatology, although rainfall
+and temperature are correlated, orographic effects mean that spatial
+correlation lengths are smaller for rainfall than temperature.  The
+simple example given in Section~\ref{toy_example} uses terminology
+inspired by this motivating example.
+
+
+\subsection{Non-separable covariance structures}
+
+To accommodate differing roughness lengths, it is necessary to use
+non-separable covariance structures.  Examples include that
+of~\citet{majumdar2007}, who observed that the convolution of two
+positive-definite covariance functions is again positive definite.
+However, \citeauthor{majumdar2007} noted that in practice the
+convolution will have no closed form, a drawback not affecting the
+present work.  
+
+Recent unpublished work by~\cite{fricker2010} also uses convolution
+techniques and presents a nonseparable covariance structure of which
+the present work is shown to be a generalization.
+
+
+Related work might also include~\citet{kennedy2000}\footnote{The
+  \pkg{approximator} package~\citep{hankin2009manual} provides a suite
+  of related \proglang{R} functionality.}, who presented methods to
+analyze a hierarchy of levels of a model.  The present work, however,
+does not make the Markov assumption (their Equation 1), and does not
+have the nested design restriction ($D_t\subseteq D_{t-1}$ in their
+notation).
+
+\subsection{Dimension reduction and Bayesian estimation}
+
+Highly multivariate output (such as a temperature field over a 3D
+Cartesian lattice) is difficult to deal with and many workers have
+sought methods to reduce such output to a more manageable format.  The
+techniques discussed above are a special case of dimension reduction
+but other techniques have been presented in the context of Bayesian
+inference.
+
+Principal Component Analysis is one frequently used tool.
+\cite{higdon2008}, for example, considers high dimensional data from a
+series of experiments involving high explosive and applies the methods
+of~\cite{kennedy2001a}, although the principal components are assumed
+to be independent, an assumption not necessary in the present
+approach.
+
+Other techniques for dimension reduction exist. \citet{bayarri2007},
+for example, use wavelet decomposition and use a thresholding
+procedure to produce a manageable number of coefficients.  The
+techniques outlined in the present paper are applicable in principle
+to wavelet decompositions, but further work would be needed.
+
+
+\section{The multivariate case}
+
+In this section, I outline a scheme by which the emulator of
+Section~\ref{review_univariate} may be generalized to the multivariate
+case in a computationally tractable manner, with exact expressions for
+the (conditional) covariance matrix~\ref{explicit_Sigma}.  The
+presentation uses a generalization of Bochner's theorem in such a way
+as to precisely delineate the space of admissible covariance
+functions.
+
+In the multivariate case, there are~$p$ different types of
+observation, say $\eta_r(\cdot)$ for~$r=1,\ldots,p$.  Each type of
+observation is a Gaussian process (hence susceptible to analysis by
+the \pkg{emulator} package), but here we admit covariances between the
+observation types, so that~$\COV(\eta_r(\bx),\eta_s(\bx'))\neq 0$
+for~$r\neq s$.  Here~$\eta_{r}(\bx)$ is the value of an observation of
+type~$r$ at point~$\bx$.
+
+We suppose that observations of type~$r$ are made at
+points~$\bX^{(r)}=\left(\bX^{(r)}_1,\ldots,\bX^{(r)}_{n_r}\right)^\top$
+for~$1\leqslant r\leqslant p$.  Thus observations of type~$r$ are made
+at points on a design matrix~$\bX^{(r)}_{[n_r\times d]}$.
+
+\newcommand{\jjh}[1]{\bh_#1\left(\bX^{(#1)}\right)^\top}
+
+It is straightforward to specify the expectation.  This is just
+\begin{equation}\label{multivariate_expectation}
+  \E(\boldd)=H\bbeta=
+  \left(
+  \begin{array}{cccc}
+  \jjh{1}&0&\cdots&0\\
+  0&\jjh{2}&&\vdots\\
+  \vdots&&\ddots&\\
+  0&\cdots&&\jjh{p}
+  \end{array}
+  \right)
+  \left(
+  \begin{array}{c}
+    \bbeta_1\\
+    \vdots\\
+    \bbeta_p
+    \end{array}
+  \right)
+  \end{equation}
+
+where~$\bh_r(\cdot)$ are the basis functions for the observation
+types~$r$ with~$1\leqslant r\leqslant p$;
+thus~$H_{[\sum_{r=1}^p n_r\times\sum_{r=1}^{p}q_r]}$ is a generalized
+regressor matrix.  See how the overall coefficient
+vector~$\bbeta=\left(\bbeta_1,\ldots,\bbeta_p\right)^\top$ may
+be partitioned into its several components.  It is not necessary for
+all the~$\bbeta_r$ to be of the same length.
+
+The overall variance matrix will be
+
+\begin{equation}\label{multivariate_Sigma}
+  \Sigma=
+  \left[
+    \begin{array}{cccc}
+    \Sigma^{(11)} & \Sigma^{(12)} & \cdots & \Sigma^{(1p)}\\
+    \Sigma^{(21)} & \Sigma^{(22)} & \cdots & \Sigma^{(2p)}\\
+    \vdots     & \vdots     & \ddots & \vdots    \\
+    \Sigma^{(p1)} & \Sigma^{(p2)} & \cdots & \Sigma^{(pp)}
+    \end{array}
+    \right]
+\end{equation}
+
+where~$\Sigma^{(rs)}$ refers to the covariance between observations of
+type~$r$ and~$s$, specifically~$\Sigma^{(rr)}$ are the restricted
+univariate variance matrices for observation type~$r=1,\ldots,p$ and
+the off-diagonal entries represent covariances.
+
+Generalization to the multivariate case is subtle.  We seek a method
+of determining~$\Sigma$ of Equation~\ref{multivariate_Sigma} in such
+as way that~$\Sigma^{(rr)}$ may be specified using standard techniques
+(typically from a univariate analysis; the~$\Sigma^{(rr)}$ being
+determined on the basis of different~$\Bmat_r$
+in \ref{covariance_univariate_B} in general), \emph{and}
+the~$\Sigma^{(rs)},r\neq s$ represent covariances between observations
+of type~$r$ and~$s$ in a reasonable way.  It is necessary to guarantee
+that~$\Sigma$ in Equation~\ref{multivariate_Sigma} is positive
+definite.
+
+Formally, we seek functions~$C_{rs}(\cdot,\cdot)$
+with~$C_{rs}\left(\bx,\bx'\right)=\COV\left(\eta_r\left(\bx\right),
+\eta_s\left(\bx'\right)\right)$.  In the notation of
+Equation~\ref{multivariate_Sigma}, we would
+have~$\Sigma^{(rs)}=C_{rs}\left(\bX^{(r)},\bX^{(s)}\right)$ as the
+matrix of covariances between observations of type~$r$ at~$\bX^{(r)}$
+and observations of type~$s$ at~$\bX^{(s)}$, that is,
+between~$\eta_r\left(\bX^{(r)}\right)$ and
+~$\eta_s\left(\bX^{(s)}\right)$.  These functions are required to be
+positive-definite in the sense that~$\Sigma$ of
+Equation~\ref{multivariate_Sigma} must be positive definite for any
+set of points~$\bX^{(1)},\ldots,\bX^{(p)}$.
+
+A matrix generalization of~\ref{borel_measure} was presented
+by~\citet{cramer1940} which will be used here: $C_{rs}(\bt)$ are
+positive-definite if and only if they are of the form
+
+\begin{equation}\label{Cint}
+  C_{rs}(\bt)=\int_{\bom\in\mathbb{R}^q}e^{i\bom^\top\cdot\bt}dF_{rs}(\bom)
+\end{equation}
+
+for some positive definite~$F_{ij}(\bom)$.  If attention is restricted
+to absolutely integrable functions (a condition which will be dropped
+subsequently), this becomes
+
+\begin{equation}\label{wackernagel}
+  C_{rs}(\bt)=\int_{\bom\in\mathbb{R}^q}e^{i\bom^\top\cdot\bt}f_{rs}(\bom)\,d\bom.
+\end{equation}
+
+If we write~$||f(\bom)||$ for the matrix with $(r,s)$
+entry~$f_{rs}(\bom)$, then we require~$||f(\bom)||_{[p\times p]}$ to
+be positive definite for all~$\bom$.
+
+Considering functions of the form discussed in Equation~\ref{bochner},
+one approach would be to specify the off-diagonal elements to be
+zero.  Here~$p=3$ is used for illustration; the general case
+  follows directly:
+
+\newcommand{\gaussian}[1]{
+  \frac{
+    \exp\left\{-\half\bom^\top\Smat_{#1}^{-1}\bom\right\}
+  }{
+    \left|2\pi\Smat_{#1}\right|^{1/2}
+  }
+}
+
+\newcommand{\product}[2]{
+  \frac{
+    \exp\left\{ -\half\bom^\top\left(\half\Smat_{#1}^{-1}+\frac{1}{2}\Smat_{#2}^{-1}\right)\bom\right\}
+  }{
+    \vphantom{a_{a_{a_{a_{a_{a_{a_{a_{a}}}}}}}}}
+    \left|2\pi\Smat_{#1}\right|^{1/4} \cdot \left|2\pi\Smat_{#2}\right|^{1/4}
+  }
+}
+
+\begin{equation}\label{diagonal_3by3}
+  \left|\left| f(\bom)\right|\right|=
+  \left[
+    \begin{array}{ccc}
+      \gaussian{1} & 0 & 0 \\
+      0 & \gaussian{2} & 0 \\
+      0 & 0 & \gaussian{3} \\
+      \end{array}
+    \right]
+\end{equation}
+
+where the~$\Smat_i$ are positive-definite matrices
+corresponding to the (marginal) univariate covariance matrices of
+Equation~\ref{covariance_univariate_B}.  This matrix is positive
+definite for all~$\bom$.  This approach would only be appropriate if
+the covariances between observation types were zero.
+
+One way to account for nonzero covariance between observation types is
+suggested by the fact that, given positive numbers~$x_1,\ldots,x_p$,
+the matrix with element~$(r,s)$ equal to~$\sqrt{x_rx_s}$ is positive
+semidefinite.  Thus
+
+\begin{equation}\label{general_3by3}
+  \left|\left| f(\bom)\right|\right|=
+  \left[
+    \begin{array}{ccc}
+      \gaussian{1}   & \product{1}{2}  & \product{1}{3} \\
+      \product{2}{1} & \gaussian{2}    & \product{2}{3} \\
+      \product{3}{1} & \product{3}{2}  & \gaussian{3}
+      \end{array}
+    \right]
+\end{equation}
+
+is positive semidefinite for all~$\bom$ provided only that
+the~$\Smat_i$ are positive definite; observe that the diagonal
+elements of Equations~\ref{diagonal_3by3} and~\ref{general_3by3}
+match.  Observe that, with fixed diagonal entries, offdiagonal
+elements cannot exceed those given in Equation~\ref{general_3by3}
+while retaining positive definiteness.  The matrix thus corresponds to
+``maximal correlation'' in this sense and the general terms are then:
+
+\begin{equation}\label{cijbt}
+  C_{rs}(\bt)=  
+\left\{
+\begin{array}{cl}
+  \exp\left\{-\bt^\top\Bmat_r\bt\right\} & \quad\mbox{if~$r=s$}\\
+ \frac{\rule{0mm}{4mm}
+   \exp\left\{-\bt^\top\left(\half\Bmat_r^{-1}+\half\Bmat_s^{-1}\right)^{-1}\bt\right\}
+   }{
+\left|\left(\half\Bmat_r+\half\Bmat_s\vphantom{\half\Bmat_r^{-1}}\right)\left(\half\Bmat_s^{-1}+\half\Bmat_2^{-1}\right)\right|^{1/4}
+   }
+ & \quad\mbox{otherwise}\\
+  \end{array}\right.
+\end{equation}
+
+where we follow standard convention~\citep{oakley1999} and
+write~$\Bmat_r=\Smat_r^{-1}/2$.  Similar expressions occur in the
+study of nonstationary covariance
+functions~\citep{paciorek2006,higdon2002}; a special case (diagonal
+matrices) is given by~\citet{fricker2010}. These authors construct the
+covariance matrix using process convolutions, observing that the
+convolution theorem for Fourier transforms ensures positive
+definiteness~\citep{higdon2002,higdon2008}.
+
+
+
+
+Equation~\ref{cijbt} gives
+a positive-semidefinite variance matrix for any design matrix.
+Noting that the Schur (elementwise) product of a positive-semidefinite
+matrix and a positive definite matrix is positive definite, the
+relation
+
+\begin{equation}\label{overall_multivariate_Cdash}
+  {C'}_{rs}(\bt)=M_{rs}C_{rs}(\bt)
+\end{equation}
+
+is a positive definite function.  Here~$M_{[p\times p]}$ is a
+positive-definite matrix that accounts for covariance between
+observation types.
+
+
+\subsubsection{Other forms for the covariance matrix}
+
+It is possible to use covariance functions other than the Gaussian
+form used in Equation~\ref{general_3by3}.  The probability measures
+are required to be symmetric, and the geometric mean of two measures
+is required to have a characteristic function in closed form.  
+
+Measures that are proportional to an indicator function, that
+is
+
+\[I_A(\bx)=\left\{\begin{array}{ll}
+C&\mbox{if\ }\bx\in A\\
+0&\mbox{otherwise}
+\end{array}
+\right.
+\]
+
+where~$C$ is the normalization constant and~$A\subset\mathbbm{R}^d$
+is a support set, are a natural choice.  In this case element~$(i,j)$
+would be~$I_{A_i\cap A_j}(\bx)$; one could consider support sets that
+are hyperspheres or, more interestingly, orthotopes.
+
+One other natural choice would be the multivariate $t$-distribution,
+but further work would be necessary to assess its suitability in this
+context.
+
+
+
+\subsection*{Summary}
+
+The univariate emulator is generalized to the~$p$- variate case.
+Univariate expectation~$H\bbeta$ is generalized to the multivariate
+form given in Equation~\ref{multivariate_expectation}, and the
+univariate variance matrix of Equation~\ref{explicit_Sigma} is
+generalized to the multivariate form~\ref{multivariate_Sigma} with
+
+\newcommand{\jj}[2]{\left(\bx^{(#1)}_i-\bx^{(#2)}_j\right)}
+
+
+%\begin{equation}\label{overall_multivariate_Sigma}
+%\left[\Sigma^{(rs)}\right]_{ij}=
+%\left\{
+%\begin{array}{cl}
+%  M_{rr}\exp\left\{-\jj{r}{s}^\top\Bmat_r\jj{r}{s}\right\} & \quad\mbox{if~$r=s$}\\
+%M_{rs} \frac{\displaystyle
+%   -\exp\left\{\jj{r}{s}^\top\left(\half\Bmat_r^{-1}+\half\Bmat_s^{-1}\right)^{-1}\jj{r}{s}\right\}
+%   }{\displaystyle
+%\left|\left(\half\Bmat_r+\half\Bmat_s\vphantom{\half\Bmat_r^{-1}}\right)\left(\half\Bmat_r^{-1}+\half\Bmat_s^{-1}\right)\right|^{1/4}
+%   }
+% & \quad\mbox{otherwise}\\
+%  \end{array}\right.
+%\end{equation}
+  
+
+\begin{equation}\label{overall_multivariate_Sigma}
+\left[\Sigma^{(rs)}\right]_{ij}=
+M_{rs} \frac{
+   \exp\left\{-\jj{r}{s}^\top\left(\half\Bmat_r^{-1}+
+   \half\Bmat_s^{-1}\right)^{-1}\jj{r}{s}\right\}
+   }{
+\left|\left(\half\Bmat_r+\half\Bmat_s\vphantom{\half\Bmat_r^{-1}}\right)\left(\half\Bmat_r^{-1}+\half\Bmat_s^{-1}\right)\right|^{1/4}
+   }.
+\end{equation}
+
+arising from the positive definite
+function~$C'\left(\cdot,\cdot\right)$ of
+Equation~\ref{overall_multivariate_Cdash}.  The
+matrices~$\Sigma^{(rr)}$ correspond to univariate variance matrices
+and each is obtained from a matrix~$\Bmat_i$ of roughnesses in the
+same way as in the univariate case.  The univariate
+variance~$\sigma^2$ generalizes to a variance matrix~$M$ whose
+diagonal elements correspond to the univariate variances~$\sigma_i^2,
+1\leqslant i\leqslant p$.
+
+
+
+\subsection{Discussion}
+
+The above analysis suggests a method by which a covariance matrix may
+be determined for multivariate observations.  Here I discuss some
+implications of Equation~\ref{overall_multivariate_Sigma}.
+
+Consider the case where $\Bmat_i$ are known.  Then consider the
+correlation~$c(\cdot,\cdot)$ between the types of observations at the
+same point, ie~$\bt=\mathbf{0}$ in Equation~\ref{cijbt}.  This is just
+
+\begin{equation}\label{correlation_by_matrix}
+  \left|c(r,s)\right|\leqslant 
+  \left|
+    \left( 
+    \shalf\Bmat_r+\shalf\Bmat_s\vphantom{\shalf\Bmat_r^{-1}}
+  \right)\left(
+    \shalf\Bmat_r^{-1}+\shalf\Bmat_s^{-1}
+    \right)
+  \right|^{-1/4}\leqslant 1
+\end{equation}
+
+\begin{figure}[t!]
+  \begin{center}
+<<show_two_processes,fig=TRUE,echo=FALSE>>=
+show_diff_processes <- function(){
+  jj <- seq(from=0, to=10, by=0.4)
+
+  roughness <- c(3,0.5)
+
+  jjm <- matrix(c(jj,jj))
+  colnames(jjm) <- "a"
+  jjn <- c("foo","bar")
+
+  jjt <- factor(rep(jjn,each=length(jj)) ,levels=jjn)
+
+  mm <- mdm(xold=jjm,types=jjt)
+
+  co <- 1
+
+  hh <- mhp(M=matrix(c(1,co,co,1),2,2), B=array(roughness,c(1,1,2)),names="a",levels=jjn)
+  
+  
+  LoF <- default_LoF(mm)
+
+  set.seed(0)
+  o <- obs_maker(mm,hh,LoF,beta=c(1,0,1,0))
+  o <- matrix(o,ncol=2)
+  matplot(o,type='o',pch=16,ylab="independent variable",xlab="dependent variable")
+  abline(0,0)
+  
+  jjx <- 22   # x coord of LHS of segments
+  jjy <- 3.7  # length of segments
+  jjd <- 0.1  # separation of segments
+  jje <- 0.03 # length of serifs
+  jjl <- 5    # length of text
+  
+  jj1 <- jjx + 2/roughness[1]^0.5
+  jj2 <- jjx + 2/roughness[2]^0.5
+  
+  ## First the segments:
+  segments(jjx,jjy-jjd,jj1,jjy-jjd,lty=1,col='black')
+  segments(jjx,jjy+jjd,jj2,jjy+jjd,lty=2,col='red'  )
+
+  ## Then the left serif:
+  segments(jjx,jjy-jjd-jje,jjx,jjy-jjd+jje,lty=1,col='black')
+  segments(jjx,jjy+jjd-jje,jjx,jjy+jjd+jje,lty=2,col='red')
+ 
+  ## Then the right serif:
+  segments(jj1,jjy-jjd-jje,jj1,jjy-jjd+jje,lty=1,col='black')
+  segments(jj2,jjy+jjd-jje,jj2,jjy+jjd+jje,lty=2,col='red')
+  
+  text(22-jjl,jjy,"roughness lengths")
+}
+
+show_diff_processes()
+@ 
+\caption{An example of \label{two.processes} two correlated Gaussian
+  processes with different roughness lengths, indicated on the
+  diagram.  See how the red curve, having a longer roughness length,
+  is smoother than the black curve with a shorter roughness length.}
+  \end{center}
+\end{figure}
+
+
+
+
+where the first inequality is sharp if and only
+if~$M_{rs}^2=M_{rr}M_{ss}$; observe that~$M$ being positive
+semidefinite implies~$M_{rs}^2\leqslant M_{rr}M_{ss}$.  The second
+inequality follows from the concavity
+of~$\log\left|\Bmat\right|$~\citep{cover1988} and is thus sharp if and
+only if~$\Bmat_r=\Bmat_s$.  In the case of $1\times 1$ matrices (ie
+scalars), the matrices commute and the maximum correlation
+is~$\left[\shalf\left(1+\Bmat_r\Bmat_s^{-1}+\Bmat_s\Bmat_r^{-1}\right)\right]^{-1/4}$
+(Figure~\ref{two.processes} shows an example of two maximally
+correlated Gaussian processes with different roughness lengths).
+
+Thus~$\Bmat_r\neq\Bmat_s$ imposes an active upper bound on~$c(r,s)$:
+two Gaussian processes with different roughness coefficients cannot be
+perfectly correlated.  
+
+It is also evident that
+
+\begin{equation}\label{cov_swap}
+\COV\left(\eta_r\left(\bx_1\right),\eta_s\left(\bx_2\right)\right)=
+\COV\left(\eta_r\left(\bx_2\right),\eta_s\left(\bx_1\right)\right),
+\end{equation}
+
+for any matrices~$M,\Bmat_r,\Bmat_s$.
+
+
+\section{Estimation of hyperparameters}
+
+
+The \pkg{multivator} package requires a generalized set of
+hyperparameters compared with the \pkg{emulator} package.  The
+\pkg{emulator} package needs a single positive-definite matrix~$\Bmat$
+that expressed the roughness length of the response function;
+\pkg{multivator} requires matrices~$\Bmat_1,\ldots,\Bmat_p$: One
+matrix per type of observation.  Each matrix represents the marginal
+roughness characteristics of each observation type.
+
+\cite{oakley1999}, and many subsequent authors, assumed that the
+overall variance matrix~$\Sigma$ was given by~$\Sigma=\sigma^2A$,
+where~$\sigma^2$ is a scalar and~$A$ a matrix of correlations.
+\citet{oakley1999} proceeded to integrate out~$\sigma^2$ (using a weak
+prior distribution) to obtain an expression for the posterior
+distribution of the process in terms of~$\hat{\sigma}^2$, the
+estimated value for~$\sigma^2$.
+
+The approach advocated here, by contrast, generalizes the scalar
+variance~$\sigma^2$ to~$M$, a~$p\times p$ positive-definite matrix
+which expresses the overall variances and covariances of the~$p$
+different types of observation; subsequent analysis is conditional on
+the values of the~$\Bmat_i$ and~$M$.
+
+The procedure used in the package is a three step process:
+
+\begin{enumerate}
+  \item Estimate the roughness parameters for each observation type
+    separately, using techniques of the \pkg{emulator} package,
+  \item Calculate the marginal variance terms, using an analytical
+    expression for the posterior mode, following~\citet{oakley1999};
+    these are the diagonal elements of~$M$,
+  \item Estimate the off-diagonal elements of~$M$ by numerical
+    determination of the posterior mode.  To ensure
+    positive-definiteness, an improper flat prior with nonzero support
+    extending over the positive-definite matrices may be used.
+\end{enumerate}  
+
+This multi-stage procedure is reminiscent of the two-stage process
+outlined in~\cite{kennedy2001a}.  It seems to work reasonably well in
+practice.  The process is not perfect: One might wish to calculate the
+joint likelihood of~$M$ and the~$\Bmat_i$ simultaneously; the relevant
+likelihood is given by \citeauthor{oakley1999}'s Equation~2.36, which in our
+notation is
+\begin{equation}\label{oakley_2.36}
+  {\cal L}\left(M,\Bmat_1,\ldots,\Bmat_p\right)=
+  \frac{
+    \left|\Sigma^{-1}\right|^{1/2}
+  }{
+    \left|H^\top\Sigma^{-1}H\right|^{1/2}
+  }
+  \exp\left(-\frac{1}{2}\left(d-H\hat{\bbeta}\right)^\top\Sigma^{-1}\left(d-H\hat{\bbeta}\right)\right),
+\end{equation}
+
+and optimize that, but such an approach seems impractical, even for
+the toy example considered here.
+
+\section{The package in use}
+
+The \pkg{multivator} package of~\proglang{R}~\citep{rcore2011}
+routines is now demonstrated using three examples: A toy dataset in
+which the underlying assumptions are \emph{known} to be true;
+evaluates of a simple function, following~\citet{oakley1999}; and a
+larger dataset drawn from the discipline of physical oceanography.  A
+brief discussion of the package as applied to modular systems such as
+\cias~\citep{warren2008} is also given.
+
+\subsection{Toy example}
+\label{toy_example}
+Although the toy dataset and associated \proglang{R} objects are
+simple, they represent the most general form of the package's
+functionality and furnish a comprehensive suite of tests of the
+package functionality.
+
+Toy dataset \code{toy_mm} is a simple design matrix on three levels:
+\code{temp}, \code{rain}, and \code{humidity}.
+
+<<setopts,echo=FALSE>>=
+options(digits=3)
+set.seed(0) 
+@ 
+
+<<toy_design_matrix>>=
+data("mtoys")
+head(toy_mm)
+@ 
+
+Thus \code{toy_mm} is a multivariate design matrix, typically a latin
+hypercube.  Observations on \code{toy_mm} are provided in \code{toy_d}:
+
+<<show_toy_d>>=
+head(toy_d)
+@ 
+
+The central function of the package is \code{multem()}, corresponding
+to \code{interp()} of package \pkg{emulator}.  Suppose we wish to make
+inferences about a particular point in parameter space:
+
+
+<<showpoint>>=
+toy_point
+@ 
+
+Thus \code{toy\_point} corresponds to measuring all three levels (\code{temp},
+\code{rain}, \code{humidity}) at a single point in parameter space.
+It is straightforward to use the package to provide an estimate for
+the process at this point, using \code{multem()}:
+
+<<show_multem>>=
+(e <- multem(toy_point, toy_expt, toy_mhp, toy_LoF, give = TRUE))
+@ 
+
+[Object \code{toy\_expt} is an \proglang{S4} object with slots for the
+  design matrix and observations, produced by \code{experiment()}].
+The return value of \code{multem()} is a two-element list with the
+first being a vector whose elements are the posterior mean for each
+row of the multivariate design matrix \code{toy_mm}, and the second is
+the conditional variance matrix.  Thus we see that, at this point in
+parameter space, temperature and rainfall are negatively correlated.
+The diagonal of the matrix gives the (conditional) marginal variances
+for the three levels (\code{temp}, \code{rain}, \code{humidity}).
+
+So, for example, one might sample from the posterior distribution:
+
+<<sample.from.posterior>>=
+rmvnorm(n=5,mean=e$mstar,sigma=e$cstar)
+@ 
+
+<<setup_uni,echo=FALSE>>=
+wanted <- types(toy_mm)=='temp'
+m_uni <- xold(toy_mm[wanted,])
+d_uni <- toy_d[wanted]
+s_uni <- diag(B(toy_mhp)[,,"temp"])
+x_uni <- xold(toy_point)[1,,drop=FALSE]
+f_uni <- toy_LoF[["temp"]]
+A_uni <- solve(corr.matrix(m_uni,scales=s_uni))   # NB: A^{-1}
+@ 
+
+
+The equivalent univariate analysis may be carried out using
+function~\code{interpolant.quick()} of the \pkg{emulator} package:
+
+<<use_uni,echo=TRUE>>=
+interpolant.quick(
+                  x      = x_uni,
+                  d      = d_uni,
+                  xold   = m_uni,
+                  Ainv   = A_uni,
+                  scales = s_uni,
+                  func   = f_uni,
+                  give.Z = TRUE)
+@ 
+
+<<use_uni_forjj,echo=FALSE>>=
+jj_univariate <- 
+interpolant.quick(
+                  x      = x_uni,
+                  d      = d_uni,
+                  xold   = m_uni,
+                  Ainv   = A_uni,
+                  scales = s_uni,
+                  func   = f_uni,
+                  give.Z = TRUE)
+@ 
+
+
+
+
+[the \code{_uni} suffix denotes the univariate subset corresponding to
+  \code{temp}].  The mean value changes from
+about~\Sexpr{round(e$mstar[1],2)}\ %$.........................................
+in the multivariate case
+to~\Sexpr{round(jj_univariate$mstar,2)}\ %$...................................
+in the univariate case, and the conditional variance changes from
+about~\Sexpr{round(e$cstar[1,1]^2,3)}\ %$.......................................
+to
+about~$\Sexpr{round(jj_univariate$Z,3)}^2=\Sexpr{round(jj_univariate$Z^2,3)}$.%$..............
+\mbox{\ }The difference is due to the nonindependence of the observation types.
+
+
+
+\subsection{Estimation of the hyperparameters in the package}
+
+In this section, the hyperparameters for the synthetic dataset considered
+above are estimated using the package, following the scheme suggested
+above.
+
+In common with the \pkg{emulator} and \pkg{calibrator} packages, the
+\pkg{multivator} package includes functionality to create datasets
+with values drawn from the appropriate distribution.
+
+<<mm_maker>>=
+mm <- toy_mm_maker(81,82,83)
+d <- obs_maker(mm, toy_mhp, toy_LoF, toy_beta)
+jj_expt <- experiment(mm,d)
+@ 
+
+Here \code{mm} is a multivariate design matrix, created using a latin
+hypercube; the three arguments specify the number of points in
+parameter space at which each observation type is made.  Function
+\code{obs\_maker()} creates observations drawn from the appropriate
+distribution.  Here, \code{toy_mhp} is a hyperparameter object (a
+matrix~$M_{[3\times 3]}$ of covariances, and three~$\Bmat_{[4\times
+    4]}$ roughness matrices, one per observation type); \code{toy_LoF}
+is a list of regressor functions, and \code{toy_beta} is a vector of
+regression coefficients.
+
+The function \code{optimal_scales()} first estimates the~$\Bmat_i$
+matrices and then, conditional on this, estimates the overall
+covariance matrix~$M$, conditional on the~$\Bmat_i$, using
+Equation~\ref{oakley_2.36}:
+
+<<mhpopt,cache=TRUE>>=
+mhp_opt <- optimal_params(jj_expt, toy_LoF, option="b")
+@ 
+
+Specifying \code{option="b"} restricts the~$\Bmat_i$ to diagonal
+matrices.  The optimized value for~$M$, the matrix of
+covariances is then given by
+
+<<show_estimated_M,echo=TRUE>>=
+M(mhp_opt)
+@ 
+
+Compare the true value:
+
+
+<<show_true_M,echo=TRUE>>=
+M(toy_mhp)
+@ 
+
+
+\subsection{Validation}
+
+It is possible to validate the above approach by the technique of
+using half the dataset for fitting the emulator (as above), then the
+remaining half for validation.  The appropriate \proglang{R}
+expression would be
+
+<<estimate_toy_mm2>>=
+est2 <- multem(toy_mm2, toy_expt, toy_mhp, toy_LoF)
+@ 
+
+where \code{toy\_mm} and \code{toy\_mm2} are components of the
+\emph{same} multivariate observation taken from the distribution
+specified in Equation~\ref{unconditional_gaussian}.
+Figure~\ref{holdbackhalf} shows such an exercise, exhibiting
+reasonable agreement between observed and predicated values.
+
+
+
+
+\begin{figure}[t!]
+  \begin{center}
+<<holdbackhalf,fig=TRUE,echo=FALSE>>=
+par(pty="s")
+
+jj <- multem(toy_mm2, toy_expt, toy_mhp, toy_LoF, give=TRUE)
+y <- jj$mstar
+sd <- sqrt(diag(jj$cstar))
+quan <- 1
+cols <- c("red","green","blue")[types(toy_mm2)]
+
+plot(toy_d2,y,xlim=c(-2,16),ylim=c(-2,16),asp=1,col=cols,pch=16, xlab="observed",ylab="emulated")
+
+segments(x0=toy_d2, y0=y-sd*quan, y1=y+sd*quan,col=cols)
+
+abline(0,1)
+legend("topleft",c("temp","rain","humidity"),pch=16,col=c("red","green","blue"))
+@ 
+\caption{Observed vs \label{holdbackhalf} predicted values for a
+  sample from the multivariate Gaussian distribution defined by
+  Equation~\ref{unconditional_gaussian} with mean and variance defined
+  by Equations~\ref{multivariate_expectation}
+  and~\ref{overall_multivariate_Sigma}.  Error bars correspond to
+  marginal standard deviations.}
+  \end{center}
+\end{figure}
+
+
+\section{Simple functional analysis}
+
+In this section, a simple
+function~$f\colon\Bbb{R}^2\to\Bbb{R}^2$ is considered, and univariate
+inference is compared with the multivariate techniques introduced above.
+
+From a computational perspective, an analysis using the
+\pkg{multivator} package is presented ``from scratch''; standard
+\proglang{R} objects are coerced to the appropriate \proglang{S4} objects.
+
+The functions considered are~$f_a(x,y)=\sin(5\cdot(x+y))$
+and~$f_b(x,y)=7\sin(5\cdot(x+y))+\sin(20\cdot(x-y))$.  These functions
+correspond to observations of type `a' and `b' respectively, and are
+chosen so that they are correlated, but~$f_a$ might be expected to
+have a smoother response than~$f_b$.  An experimental design is then
+needed for each function, which in this case is a simple latin
+hypercube:
+
+
+<<simple_function_thing,echo=FALSE>>=
+fa <- function(x) sin(5*sum(x)) 
+fb <- function(x) 7*sin(5*sum(x)) + sin(20*diff(x))
+@ 
+
+<<designmatrix>>=
+# number of observation points:
+na <- 33    # observation of 'a'
+nb <- 09    # observation of 'b'
+@ 
+
+<<echo=FALSE>>=
+set.seed(0)
+@ 
+
+<<dowork>>=
+xa <- latin.hypercube(na,2) # so rows of 'xa' are observation points for 'a'
+xb <- xa[seq_len(nb),]
+#xb <- latin.hypercube(nb,2)
+@ 
+
+<<namecols,echo=FALSE>>=
+colnames(xa) <- colnames(xb) <- c("x","y")
+@ 
+
+Thus {\tt xa} and {\tt xb} are standard \proglang{R} matrices.  It is
+now possible to evaluate~$f_a$ and~$f_b$ over their experimental
+designs:
+                     
+<<feval>>=
+a_obs <- apply(xa,1,fa)
+b_obs <- apply(xb,1,fb) 
+@ 
+
+Thus there are two design matrices {\tt xa} and {\tt xb}, and two
+corresponding sets of observations, here {\tt a\_obs} and {\tt
+  b\_obs}, all in the form of standard \proglang{R} objects (matrices
+and vectors respectively).  It is now straightforward to apply the
+\pkg{multivator} package methods.
+
+We first define a multivariate design matrix (an object of class
+``{\tt mdm}'') by combining the univariate design matrices {\tt xa}
+and {\tt xb}, then create an {\tt experiment} object by adding the
+code observations; and finally estimate optimal parameters using {\tt
+  optimal\_params()}:
+
+<<thingplot,cache=TRUE>>=
+RS_mdm <- mdm(rbind(xa,xb),types=c(rep("a",na),rep("b",nb)))
+RS_expt <- experiment(mm=RS_mdm, obs= c(a_obs,b_obs))
+RS_opt <- optimal_params(RS_expt, option="b")
+@ 
+
+
+The three objects above define a working multivariate emulator in
+terms of bespoke \proglang{S4} objects specific to the
+\pkg{multivator} package.  Suppose we wish to predict~$f_b$ and~$f_b$
+on a set of $n=20$ points in its domain:
+
+<<dfgfdgfdg>>=
+n <- 20
+xnew <- latin.hypercube(n,2,names=c("x","y"))
+#xnew <- cbind(x=runif(20),y=runif(20))
+@ 
+
+The appropriate \proglang{R} idiom is to create a new multivariate
+design matrix on {\tt xnew}; then use function {\tt multem()} to
+provide multivariate estimates of~$f_b$ on the design matrix:
+
+<<simple_mdm>>=
+RS_new_mdm <- mdm(rbind(xnew,xnew),rep(c("a","b"),each=n))
+RS_prediction <- multem(x=RS_new_mdm, expt=RS_expt, hp=RS_opt)
+@ 
+
+A graphical summary of the results is given in Figure~\ref{uni_multi}.
+
+\begin{figure}[t!]
+  \begin{center}
+<<uni_multi_fig,fig=TRUE,echo=FALSE>>=
+nf <- layout(matrix(1:2,1,2))
+par(mai=c(0,0,0,0)+0.8)
+par(pty="s")
+
+#first an emulator for the components separately:
+sa <- optimal.scales(val=xa, scales.start=c(4,4), d=a_obs)
+sb <- optimal.scales(val=xb, scales.start=c(4,4), d=b_obs)
+
+# now use univariate emulation:
+ya_emulated <- interpolant.quick(x=xnew, d=a_obs, xold=xa, pos.def.matrix=diag(sa))
+yb_emulated <- interpolant.quick(x=xnew, d=b_obs, xold=xb, pos.def.matrix=diag(sb))
+
+# now calculate f() at xnew:
+ya_calc <- apply(xnew,1,fa)
+yb_calc <- apply(xnew,1,fb)
+
+# extract the multivator predictions:
+ya_multivated <- RS_prediction[1:n]
+yb_multivated <- RS_prediction[(n+1):(n+n)]
+
+# now the scattergraphs:
+#plot(ya_calc,ya_emulated,main="a emulated")
+plot(yb_calc,yb_emulated,
+     xlab='observed',ylab='predicted',
+     xlim=c(-10,10),ylim=c(-10,10),
+     main='(a), univariate emulation'
+     )
+abline(0,1)
+
+plot(yb_calc,yb_multivated,
+     xlab='observed',ylab='predicted',
+     xlim=c(-10,10),ylim=c(-10,10),
+     main='(b), multivariate emulation'
+     )
+abline(0,1)
+
+@ 
+\caption{Analysis of a simple function on a 2D
+  Latin\label{uni_multi} hypercube.  Function evaluations on the
+  horizontal axis plotted against predicted
+  values on the vertical axis.  (a), univariate emulation
+  ($R^2=\Sexpr{round(summary(lm(yb_emulated~yb_calc))$r.squared,3)}$)
+  and (b), multivariate emulation
+  ($R^2=\Sexpr{round(summary(lm(yb_multivated~yb_calc))$r.squared,3)}$).
+}
+\end{center}
+\end{figure}
+
+
+<<simple_prediction,echo=FALSE>>=
+
+@ 
+
+\section[Data analysis using multivator]{Data analysis using \pkg{multivator}}
+
+The package is now used to analyze climate change data obtained from
+the \genie\ model, a computationally efficient Earth-Systems
+model designed to assess climate change from an oceanographical
+perspective on a timescale of centuries to
+millennia~\citep{edwards2005}.
+
+
+
+\citet{mcneall2008} considered \genie\ output and used Principal
+Component Analysis as an analytic technique.  Here, I consider the
+first four principal components using the \pkg{multivator} package.
+Although principal components are mutually orthogonal, they are not
+necessarily independent with respect to any given regressors.  I now
+show how data provided by~\citeauthor{mcneall2008} may be analyzed
+using the \code{multivator} package.
+
+
+<<datatemp,cache=FALSE>>=
+data("mcneall")
+dim(mcneall_temps)
+@ 
+
+\begin{figure}[t!]
+  \begin{center}
+<<showmap,fig=TRUE,echo=FALSE>>=
+showmap(mcneall_temps[,1],FALSE)
+@ 
+\caption{Typical\label{typicalgenie} output from \genie: A global map of
+  temperature, interpreted as yearly average values.}
+\end{center}
+\end{figure}
+
+The \code{mcneall\_temps} matrix has 92 columns, one for each of 92
+runs of \genie.  Each column, of 2048 numbers, corresponds to a map of
+global temperature; an example is given in Figure~\ref{typicalgenie}
+in which the \code{showmap()} function is used to reshape the vector
+to a form suitable for display.
+
+Dataset \code{mcneall\_pc} has 92 rows, one per run, and 20 columns.
+The first 16 columns show the design matrix of independent
+variables\footnote{That is, physical parameters with uncertain values,
+  needed as inputs to \genie; the first one, `WSF', for example, is
+  `windstress scaling factor';~\citeauthor{mcneall2008} gives a full
+  discussion and a table on page 50.}.  The last four columns are the
+first four principal components of the output; an interpretation is
+given in Figure~\ref{pc_showed}.
+
+<<datamcneall,cache=FALSE>>=
+dim(mcneall_pc)
+head(mcneall_pc,2)
+@ 
+
+\begin{figure}[t!]
+  \begin{center}
+<<showeigenmaps,fig=TRUE,echo=FALSE>>=
+
+showmap_works_in_Sweave <- function(z, ...){ #bespoke function needed because showmap() output doesn't play nicely with layout().
+  long <- seq(from=2.81,to=357,length.out=64)
+  lat  <- c(-79.811531,seq(from=-74.81,to=86,len=30),86.6)
+  z <- t(matrix(z,32,64))
+  image(x=long,y=lat,z=z,col=terrain.colors(12), ...)
+  contour(x=long,y=lat, landmask,level=0.5,drawlabels=FALSE,method='simple',add=TRUE,lwd=1.2,col='black')
+}
+
+nf <- layout(matrix(1:4,2,2))
+par(mai=c(0,0,0,0)+0.8)
+showmap_works_in_Sweave(eigenmaps[,1],main='Principal component 1')
+showmap_works_in_Sweave(eigenmaps[,2],main='Principal component 2')
+showmap_works_in_Sweave(eigenmaps[,3],main='Principal component 3')
+showmap_works_in_Sweave(eigenmaps[,4],main='Principal component 4')
+@ 
+\caption{The first\label{pc_showed} four principal components in the
+  McNeall dataset of 92 \genie\ runs.  The first shows the standard
+  Pole/Equator variability; the second shows the uncertainty near the
+  South Pole; the third represents uncertainty due to the bistability
+  of the meridional overturning circulation in the North Atlantic; the
+  fourth appears to be related to the state of the Pacific Decadal
+  Oscillation or possibly the ENSO.}
+
+\end{center}
+\end{figure}
+
+
+
+% following lines show temperature anomaly 
+%wanted <- 1
+%showmap(mean_temp  + eigenmaps %*% mcneall_pc[wanted,17:20]- mcneall_temps[,wanted],
+%        cols=heat.colors(21),FALSE)
+
+
+
+Although this dataset is more involved than the others considered in
+this paper, the same computational techniques may be used:
+
+<<optimize_mcneall_hps,eval=FALSE>>=
+jj <- apart(mcneall_pc, 17:20)
+opt_mcneall <- optimal_params(jj, start_hp=opt_mcneall, option='a')
+@ 
+
+Then we may examine the covariance matrix between residuals of the
+first four principal components:
+
+<<show_mcneall_covs>>=
+(CM <- M(opt_mcneall))
+@ 
+
+This shows that the correlations between the principal components are
+nontrivial:
+
+<<showcovs>>=
+CM/sqrt(tcrossprod(diag(CM)))
+@ 
+
+In particular, the positive correlation between the third and fourth
+component may be interpreted from the perspective of more
+sophisticated approaches such as general circulation
+models~\citep{wan2009}.
+
+Note that these correlations are conditional upon the form of the
+regressor functions (here the default set \code{default\_LoF}).
+
+\subsection{Modular systems}
+Multivariate emulation appears to be a useful technique in the context
+of modular systems such as \cias~\citep{warren2008} in which
+a model comprises various component ``modules''.  
+
+
+In the case of
+\cias, the modules address various aspects of the global
+climate system and examples include \ethreemg\ which models the
+global economy, \proglang{MAGICC} which models the physical global
+climate, and \proglang{ICLIPS} which models the impacts of climate
+change.  The modules exchange information at runtime using the
+\proglang{BFG} protocol.
+
+One feature of \cias\ is that it is possible to replace any
+module with another functionally equivalent one.  Multivariate
+emulation is useful when considering the behaviour of \cias\
+used in this way.  If one has~$p$ different interchangeable modules,
+then the output of \cias\ is a $p$-variate random variable
+that may be analyzed using the \pkg{multivator} package.
+
+In an associated vignette, visible from within an \proglang{R} session
+by typing \code{vignette("cias")}, a short analysis of a synthetic
+dataset is presented.
+
+\section{Discussion}
+
+A generalization of the emulator to multivariate datasets is proposed
+and the \pkg{multivator} package has been introduced.  The package is
+used to analyze datasets drawn from the fields of oceanography and
+climate change.  The variance structure proposed appears to have
+pleasing and useful properties.  Further work might include extension
+of the ideas presented here to complex functions.
+
+
+\bibliography{multivator} 
+\end{document} 
+ 
