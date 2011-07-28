@@ -1,2 +1,5 @@
 exportPattern("^[^\\.]")
 importFrom("utils", head, tail)
+import("mvtnorm")
+import("methods")
+import("emulator")

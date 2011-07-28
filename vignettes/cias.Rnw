@@ -81,6 +81,8 @@ calc_from_scratch <- TRUE
 
 <<echo=FALSE,print=FALSE>>=
 ignore <- require(multivator,quietly=TRUE)
+ignore <- require(abind,quietly=TRUE)
+ignore <- require(emulator,quietly=TRUE)
 @ 
 
 \proglang{CIAS}~\citep{warren2008} is a system for analyzing climate

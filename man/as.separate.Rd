@@ -20,6 +20,8 @@ as.separate(expt)
   Robin K. S. Hankin
 }
 \examples{
+require(emulator)
+
 data(mtoys)
 d <- obs_maker(toy_mm, toy_mhp, toy_LoF, toy_beta)
 

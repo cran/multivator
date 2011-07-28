@@ -40,7 +40,7 @@ Robin K. S. Hankin
 data(e3mg)
 apart(e3mg , 6:7)
 
-a <- round(latin.hypercube(6,5),2)
+a <- round(emulator::latin.hypercube(6,5),2)
 rownames(a) <- c("first","second","third","fourth","fifth","sixth")
 colnames(a) <- c(letters[1:3],"length","depth")
 jj_expt <- apart(a,4:5)    # use of apart()

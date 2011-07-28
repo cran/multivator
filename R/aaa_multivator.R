@@ -97,7 +97,7 @@
     out <- list()
     for(i in seq_along(levels(types(x)))){
       out[[i]] <- list(
-                       val = jj[[i]],
+                       val = as.matrix(jj[[i]]),
                        obs = dd[[i]]
                        )
     }
