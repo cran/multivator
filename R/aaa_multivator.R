@@ -425,9 +425,23 @@ sqrt((1/det(Sigma)) / det(quad.form.inv(Sigma,H))) *
   for(i in seq_along(shs)){
     val <-  jj[[i]]$val
     d1   <- jj[[i]]$obs
+
+    ## following code checks for LoF[[i]] returning a vector of length
+    ## 1, which changes the behaviour of apply().  Thanks to Hy
+    ## Houtongji for spotting this.
+
+
+    H <- (apply(val, 1, LoF[[i]]))
+
+    if(length(LoF[[i]](val[1,]))==1){
+      H <- as.matrix(H)
+    } else {
+      H <-t(H)
+    }
+    
     shs[i] <-
     sigmahatsquared(
-                    H    = t(apply(val, 1, LoF[[i]])),
+                    H    = H,
                     Ainv = solve(corr.matrix(xold=val, scales=diag(B_cond[,,i]))),
                     d    = d1
                     )
@@ -535,7 +549,7 @@ sqrt((1/det(Sigma)) / det(quad.form.inv(Sigma,H))) *
               ))
 }
 
-"showmap" <- function(z, pc,  ...){
+"showmap" <- function(z, pc,  landmask, ...){
   long <- seq(from=2.81,to=357,length.out=64)
   lat  <- c(-79.811531,seq(from=-74.81,to=86,len=30),86.6)
   z <- t(matrix(z,32,64))

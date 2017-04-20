@@ -10,12 +10,10 @@ Is a matrix symmetric positive-definite?
 ipd(mat)
 }
 \arguments{
-  \item{mat}{
-    A matrix
-}
+  \item{mat}{A matrix}
 }
 \value{
-Returns either \code{TRUE} or \code{FALSE}, printing a diagnostic message
+Returns either \code{TRUE} if symmetric positive-definite; or \code{FALSE}, printing a diagnostic message.
 }
 \author{
 Robin K. S. Hankin

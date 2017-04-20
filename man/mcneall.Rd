@@ -55,7 +55,7 @@ numerical climate model".  PhD thesis, University of Southampton.
 \examples{
 data(mcneall)
 
-showmap(mcneall_temps[,1], pc=FALSE)
+showmap(mcneall_temps[,1], pc=FALSE,landmask=landmask)
 
 }
 \keyword{datasets}

@@ -3,3 +3,13 @@ importFrom("utils", head, tail)
 import("mvtnorm")
 import("methods")
 import("emulator")
+
+
+ importFrom("grDevices", "heat.colors", "terrain.colors")
+ importFrom("graphics", "axis", "contour", "filled.contour", "title")
+ importFrom("stats", "optim", "sd")
+
+S3method("print", experiment)
+S3method("print", mdm)
+S3method("print", mhp)
+S3method("print", mhpSummary)

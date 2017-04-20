@@ -957,7 +957,7 @@ about~\Sexpr{round(e$mstar[1],2)}\ %$.........................................
 in the multivariate case
 to~\Sexpr{round(jj_univariate$mstar,2)}\ %$...................................
 in the univariate case, and the conditional variance changes from
-about~\Sexpr{round(e$cstar[1,1]^2,3)}\ %$.......................................
+about~\Sexpr{round(e$cstar[1,1],3)}\ %$.......................................
 to
 about~$\Sexpr{round(jj_univariate$Z,3)}^2=\Sexpr{round(jj_univariate$Z^2,3)}$.%$..............
 \mbox{\ }The difference is due to the nonindependence of the observation types.
@@ -1240,7 +1240,7 @@ dim(mcneall_temps)
 \begin{figure}[t!]
   \begin{center}
 <<showmap,fig=TRUE,echo=FALSE>>=
-showmap(mcneall_temps[,1],FALSE)
+showmap(mcneall_temps[,1],FALSE,landmask)
 @ 
 \caption{Typical\label{typicalgenie} output from \genie: A global map of
   temperature, interpreted as yearly average values.}

@@ -26,9 +26,7 @@ apart(X, dependent, use_rownames = TRUE)
 }
 \value{
   Returns an object of class \code{experiment}.
-
 }
-
 \author{
 Robin K. S. Hankin
 }

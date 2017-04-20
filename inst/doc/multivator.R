@@ -327,7 +327,7 @@ dim(mcneall_temps)
 ###################################################
 ### code chunk number 32: showmap
 ###################################################
-showmap(mcneall_temps[,1],FALSE)
+showmap(mcneall_temps[,1],FALSE,landmask)
 
 
 ###################################################
