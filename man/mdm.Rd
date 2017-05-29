@@ -48,7 +48,6 @@ as.mdm(x, ...)
 is.mdm(x)
 as.list(x, ...)
 as.matrix(x, ...)
-names(x) <- value
 \S4method{as.data.frame}{mdm,missing,missing}(x, row.names=NULL,optional=TRUE, ...)
 \S4method{rbind}{mdm}(x, ..., deparse.level=1)
 types(x)
@@ -63,7 +62,6 @@ xold(x)
   }
   \item{x}{An object of class \code{mdm}
   }
-  \item{value}{Replacement value}
   \item{row.names,optional}{Currently ignored}
   \item{...}{Further arguments passed to \code{NextMethod()}}
   \item{deparse.level}{As for \code{rbind()}}
