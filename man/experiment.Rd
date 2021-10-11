@@ -13,7 +13,7 @@
 Multivatriate hyperparameter (mhp) objects
 }
 \description{
-Create and manipulate multivatriate hyperparameter (mhp) objects
+Create and manipulate multivariate hyperparameter (mhp) objects
 }
 \usage{
 experiment(mm,obs)

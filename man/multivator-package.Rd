@@ -31,7 +31,7 @@ R. K. S. Hankin 2005.  \dQuote{Introducing {BACCO}, an {R} bundle for
 
 R. K. S. Hankin (2012). \dQuote{Introducing multivator: A Multivariate Emulator}
 \emph{Journal of Statistical Software}, 46(8), 1-20.
-\url{http://www.jstatsoft.org/v46/i08/}
+\doi{10.18637/jss.v046.i08}
   }
 \keyword{ package }
 \seealso{

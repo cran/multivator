@@ -5,7 +5,7 @@
 \title{
 Overall variance matrix
 }
-\description{
+\description{\loadmathjax
 Calculates the maximum correlations possible consistent with the
 roughness parameters
 }
@@ -34,7 +34,7 @@ ss_matrix_simple(hp,useM=TRUE)
   between observations of two Gaussian processes at the same point
   (equation 24 of the vignette):
 
-  \deqn{
+  \mjdeqn{
     \left|
     \left( 
     \frac{1}{2}B_r+\frac{1}{2}B_s\vphantom{\frac{1}{2}B_r^{-1}}

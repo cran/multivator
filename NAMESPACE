@@ -3,7 +3,7 @@ importFrom("utils", head, tail)
 import("mvtnorm")
 import("methods")
 import("emulator")
-
+import("mathjaxr")
 
  importFrom("grDevices", "heat.colors", "terrain.colors")
  importFrom("graphics", "axis", "contour", "filled.contour", "title")
