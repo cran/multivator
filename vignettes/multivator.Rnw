@@ -56,8 +56,7 @@
   
   This vignette is based on \citet{hankin2012}.
   
-%  This vignette is based on a manuscript currently under review at the
-%  Journal of Statistical Software.  For reasons of performance, some
+%  This vignette is based on Hankin 2012.  For reasons of performance, some
 %  of the more computationally expensive results are pre-loaded.  To
 %  calculate them from scratch, change ``\code{calc\_from\_scratch <-
 %    TRUE}'' to ``\code{calc\_from\_scratch <- FALSE}'' in chunk

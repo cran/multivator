@@ -1,15 +1,15 @@
 citHeader("To cite multivator in publications use:")
 
-citEntry(entry = "Article",
-  title        = "Introducing {multivator}: A Multivariate Emulator",
-  author       = as.person("Robin K. S. Hankin"),
-  journal      = "Journal of Statistical Software",
-  year         = "2012",
-  volume       = "46",
-  number       = "8",
-  pages        = "1--20",
-  doi          = "10.18637/jss.v046.i08",
-  textVersion  =
+bibentry(bibtype = "Article",
+  title          = "Introducing {multivator}: A Multivariate Emulator",
+  author         = person("Robin K. S. Hankin"),
+  journal        = "Journal of Statistical Software",
+  year           = "2012",
+  volume         = "46",
+  number         = "8",
+  pages          = "1--20",
+  doi            = "10.18637/jss.v046.i08",
+  textVersion    =
   paste("Robin K. S. Hankin (2012).",
         "Introducing multivator: A Multivariate Emulator.",
         "Journal of Statistical Software, 46(8), 1-20.",

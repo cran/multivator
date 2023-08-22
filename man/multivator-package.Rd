@@ -2,28 +2,29 @@
 \alias{multivator-package}
 \alias{multivator}
 \docType{package}
-\title{
-A multivariate emulator
-}
-\description{
-A generalization of the emulator as discussed in Hankin 2005
+\title{A multivariate emulator}
+\description{\loadmathjax
+\packageDescription{multivator}
 }
 \details{
-\tabular{ll}{
-Package: \tab multivator\cr
-Type: \tab Package\cr
-Version: \tab 1.0\cr
-Date: \tab 2009-10-27\cr
-License: \tab GPL-2\cr
-LazyLoad: \tab yes\cr
-}
+
+
+
+A generalization of the emulator as discussed in Hankin 2005; to cite
+the work in publications please use Hankin 2012.
+
+The DESCRIPTION file:
+\packageDESCRIPTION{multivator}
+\packageIndices{multivator}
 
 }
+
 \author{
-Robin K. S. Hankin
+\packageAuthor{multivator}
 
-Maintainer:  <hankin.robin@gmail.com>
+Maintainer: \packageMaintainer{multivator}
 }
+
 \references{
 R. K. S. Hankin 2005.  \dQuote{Introducing {BACCO}, an {R} bundle for
     Bayesian Analysis of Computer Code Output}.  \emph{Journal of Statistical

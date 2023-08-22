@@ -14,7 +14,7 @@ calc_from_scratch <- TRUE
 
 
 ###################################################
-### code chunk number 3: multivator.Rnw:117-120
+### code chunk number 3: multivator.Rnw:116-119
 ###################################################
 ignore <- require("multivator",quietly=TRUE)
 ignore <- require("mvtnorm",quietly=TRUE)
@@ -221,7 +221,7 @@ nb <- 09    # observation of 'b'
 
 
 ###################################################
-### code chunk number 22: multivator.Rnw:1096-1097
+### code chunk number 22: multivator.Rnw:1095-1096
 ###################################################
 set.seed(0)
 
